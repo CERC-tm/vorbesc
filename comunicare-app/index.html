@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f6f5e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Comunicare">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<title>Comunicare prin imagini</title>
+<style>
+:root{--bg:#f4f1ea;--ink:#1f2a2a;--accent:#2f6f5e;--line:#d9d3c6;--cols:3}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden;overscroll-behavior:none;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+img{-webkit-user-drag:none;pointer-events:none}
+button{font:inherit;color:inherit;cursor:pointer}
+.hidden{display:none!important}
+
+header{display:flex;align-items:center;gap:10px;padding:8px 12px;padding-top:max(8px,env(safe-area-inset-top));background:var(--accent);color:#fff}
+header .titles{flex:1;min-width:0}
+header h1{font-size:18px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#levelTag{font-size:13px;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.holdbtn{position:relative;overflow:hidden;border:0;touch-action:none}
+.holdbtn .fill{position:absolute;left:0;bottom:0;width:100%;height:0;background:rgba(255,255,255,.5)}
+.holdbtn.holding .fill{height:100%;transition:height var(--hold,1.5s) linear}
+.holdbtn .t{position:relative}
+#lockBtn{background:rgba(255,255,255,.18);color:#fff;border-radius:999px;min-width:46px;height:46px;font-size:20px;padding:0 10px}
+
+#editBar{display:flex;gap:8px;overflow-x:auto;padding:8px 10px;background:#fff7d6;border-bottom:1px solid var(--line)}
+#editBar button,#editBar select{flex:none;border:1px solid #c9b76a;background:#fff;border-radius:10px;padding:8px 12px;font-size:15px}
+#editBar .done{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+#strip{display:flex;align-items:stretch;gap:8px;padding:8px 10px;background:#fff;border-bottom:1px solid var(--line);min-height:118px}
+#stripCells{flex:1;display:flex;gap:8px;overflow-x:auto;align-items:stretch}
+.cell{flex:none;width:80px;border-radius:12px;border:3px dashed var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;background:#faf8f3;padding:4px;font-size:14px;color:#6b6b6b;text-align:center}
+.cell.active{border-color:var(--accent);background:#e8f3ef;color:var(--accent);font-weight:700}
+.cell.filled{border-style:solid;background:#fff;color:var(--ink)}
+.cell .pic{width:64px;height:64px}
+.cell .w{font-size:13px;font-weight:700;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:72px}
+#showBtn{flex:none;width:84px;border:0;border-radius:14px;background:var(--accent);color:#fff;font-size:18px;font-weight:700}
+#showBtn:disabled{background:#c9d6d2}
+
+#tabs{display:flex;gap:8px;overflow-x:auto;padding:8px 10px;background:var(--bg)}
+.tab{flex:none;border:2px solid var(--line);background:#fff;border-radius:999px;padding:8px 14px;font-size:16px;white-space:nowrap}
+.tab.active{border-color:var(--accent);background:var(--accent);color:#fff}
+
+#grid{flex:1;overflow-y:auto;overscroll-behavior:contain;display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:10px;padding:6px 10px calc(16px + env(safe-area-inset-bottom));align-content:start}
+.card{position:relative;container-type:inline-size;background:#fff;border:4px solid var(--line);border-radius:16px;padding:6px;display:flex;flex-direction:column;align-items:center}
+.card:active{transform:scale(.97)}
+.card.hid{opacity:.4}
+.card .lbl{font-size:17px;font-size:min(17px,calc(158cqw / var(--len,6)));font-weight:700;margin-top:4px;text-align:center;line-height:1.15;overflow-wrap:break-word}
+.card .badge{position:absolute;top:4px;right:4px;background:#fff7d6;border:1px solid #c9b76a;border-radius:8px;font-size:13px;padding:2px 6px}
+.card.add{border-style:dashed;justify-content:center;color:var(--accent);font-weight:700;font-size:18px;min-height:120px}
+.pic{width:100%;aspect-ratio:1;display:grid;place-items:center;container-type:inline-size;overflow:hidden;border-radius:10px}
+.pic img{width:100%;height:100%;object-fit:contain}
+.pic .emo{font-size:48px;font-size:68cqw;line-height:1}
+.pic .txt{font-size:22px;font-weight:800;line-height:1.05;text-align:center;padding:4px}
+.empty{grid-column:1/-1;text-align:center;color:#777;padding:30px 10px;font-size:16px}
+
+/* Ecran de arătat (doar imaginea / propoziția) */
+#show{position:fixed;inset:0;background:#fff;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:14px;padding:12px 16px calc(12px + env(safe-area-inset-bottom));padding-top:max(60px,calc(env(safe-area-inset-top) + 52px));overflow-y:auto}
+#showCards{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;width:100%;margin-top:auto}
+.big{width:160px;border:5px solid var(--line);border-radius:20px;padding:8px;background:#fff}
+.big .w{text-align:center;font-weight:800;font-size:20px;margin-top:4px;line-height:1.1;overflow-wrap:break-word}
+#showText{font-size:clamp(17px,min(5vw,6.5vh),32px);font-weight:800;text-align:center}
+#showSpeak{flex:none;margin-bottom:auto;width:88px;height:88px;border-radius:50%;border:0;background:var(--accent);color:#fff;font-size:44px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+#showSpeak:disabled{opacity:.35}
+#show.tight{padding-bottom:calc(110px + env(safe-area-inset-bottom))}
+@media (orientation:landscape){#show.tight #showText{padding-right:110px;padding-left:110px}}
+#show.tight #showSpeak{position:fixed;right:14px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:3;margin:0;border:4px solid #fff}
+#showBack{position:fixed;z-index:2;top:max(10px,env(safe-area-inset-top));left:10px;background:#eee;color:#555;border-radius:12px;padding:10px 14px;font-size:14px}
+
+/* Dialoguri pentru adult */
+dialog{border:0;border-radius:18px;padding:0;width:min(560px,96vw);max-height:92dvh;-webkit-user-select:text;user-select:text}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.dlg{padding:16px;display:flex;flex-direction:column;gap:12px}
+.dlg h2{margin:0;font-size:20px}
+.dlg label{display:flex;flex-direction:column;gap:4px;font-size:14px;font-weight:600}
+.dlg input[type=text],.dlg input[type=number],.dlg select{font:inherit;font-size:16px;padding:9px 10px;border:1px solid #bbb;border-radius:10px;font-weight:400}
+.dlg .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.dlg .chk{flex-direction:row;align-items:center;gap:8px;font-weight:500}
+.dlg .chk input{width:22px;height:22px}
+.dlg button{border:1px solid #bbb;background:#fff;border-radius:10px;padding:9px 13px;font-size:15px}
+.dlg button.pri{background:var(--accent);color:#fff;border-color:var(--accent)}
+.dlg button.dan{color:#b3261e;border-color:#e3a6a1}
+.dlg .actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;position:sticky;bottom:0;background:#fff;padding-top:8px}
+.dlg .note{font-size:13px;color:#555;font-weight:400;line-height:1.4}
+.dlg fieldset{min-width:0;border:1px solid #ddd;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.dlg legend{font-weight:700;font-size:14px;padding:0 4px}
+#edPic{width:150px;align-self:center;border:4px solid var(--line);border-radius:16px;padding:4px}
+.forms{display:grid;grid-template-columns:auto 1fr;gap:6px 8px;align-items:center;font-size:14px}
+.forms input{padding:6px 8px!important}
+#arResults{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+#arResults button{padding:2px;aspect-ratio:1}
+#arResults img{width:100%;height:100%;object-fit:contain}
+.lvl{border:1px solid #ddd;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.lvl.off{opacity:.55}
+.slotrow{display:flex;gap:6px;align-items:center}
+.slotrow input{flex:1;min-width:0;width:0}
+.slotrow select{width:44%;min-width:0}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:12px;font-size:15px;z-index:99;max-width:90vw;text-align:center}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="titles">
+    <h1 id="title">Comunicare prin imagini</h1>
+    <div id="levelTag"></div>
+  </div>
+  <button id="lockBtn" class="holdbtn" aria-label="Mod adult: ține apăsat"><span class="fill"></span><span class="t" id="lockIcon">🔒</span></button>
+</header>
+
+<div id="editBar" class="hidden">
+  <select id="levelSel" aria-label="Nivel"></select>
+  <button id="bAddCard">＋ Card nou</button>
+  <button id="bEditCat">✏️ Categoria</button>
+  <button id="bAddCat">＋ Categorie</button>
+  <button id="bLevels">🪜 Niveluri</button>
+  <button id="bSettings">⚙️ Setări</button>
+  <button id="bDone" class="done">✔ Gata</button>
+</div>
+
+<div id="strip" class="hidden">
+  <div id="stripCells"></div>
+  <button id="showBtn" disabled>Arată</button>
+</div>
+
+<nav id="tabs"></nav>
+<main id="grid"></main>
+
+<!-- Ecranul pe care copilul îl arată adultului -->
+<div id="show" class="hidden">
+  <button id="showBack" class="holdbtn" style="--hold:1s"><span class="fill" style="background:rgba(0,0,0,.15)"></span><span class="t">↩ Înapoi (adult: ține apăsat)</span></button>
+  <div id="showCards"></div>
+  <div id="showText"></div>
+  <button id="showSpeak" aria-label="Ascultă">🔊</button>
+</div>
+
+<dialog id="dlg"><div class="dlg" id="dlgBody"></div></dialog>
+<div id="toast" class="hidden"></div>
+
+<script>
+'use strict';
+/* ============================================================
+   Comunicare prin imagini — aplicație gratuită, fără server.
+   Toate datele (poze, voci, carduri) rămân în telefonul familiei
+   (IndexedDB). Copie de siguranță: Setări → Salvează copia.
+   ============================================================ */
+
+const $ = s => document.querySelector(s);
+function h(tag, props, ...kids){
+  const e = document.createElement(tag); let val;
+  for (const [k,v] of Object.entries(props||{})){
+    if (v==null || v===false) continue;
+    if (k==='class') e.className=v;
+    else if (k==='style') e.style.cssText=v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (k==='value') val=v;
+    else if (k==='checked') e.checked=!!v;
+    else e.setAttribute(k, v===true?'':v);
+  }
+  for (const c of kids.flat(Infinity)){ if (c==null||c===false) continue; e.append(c.nodeType?c:document.createTextNode(String(c))); }
+  if (val!==undefined) e.value=val;
+  return e;
+}
+const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+function toast(msg, ms=2500){ const t=$('#toast'); t.textContent=msg; t.classList.remove('hidden'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.add('hidden'),ms); }
+
+/* ---------------- Tipuri de cuvinte (culori Fitzgerald) ---------------- */
+const TYPES = {
+  subiect:  {name:'Cine (persoane, pronume)', color:'#E8B800'},
+  actiune:  {name:'Acțiuni (ce face)',        color:'#2E9E4F'},
+  obiect:   {name:'Lucruri, locuri',          color:'#EF7F1A'},
+  descriere:{name:'Cum este (descrieri)',     color:'#2F7FD8'},
+  legatura: {name:'Cuvinte de legătură',      color:'#8A5CC7'},
+  social:   {name:'Cuvinte sociale',          color:'#E0559A'},
+};
+const PERS = [['eu','eu'],['tu','tu'],['el','el / ea'],['noi','noi'],['voi','voi'],['ei','ei / ele']];
+const PIDX = {eu:0,tu:1,el:2,noi:3,voi:4,ei:5};
+
+/* ---------------- Carduri de început ---------------- */
+const SEED = [
+ {id:'c_mancare', name:'Mâncare', emoji:'🍎', type:'obiect', cards:[
+  ['apă','💧'],['lapte','🥛'],['suc','🧃'],['pâine','🍞'],['măr','🍎'],['banană','🍌'],['biscuit','🍪'],['struguri','🍇'],
+  ['căpșuni','🍓'],['covrig','🥨'],['ou','🥚'],['brânză','🧀'],['paste','🍝'],['supă','🍲'],['pizza','🍕'],['înghețată','🍦']]},
+ {id:'c_jucarii', name:'Jucării', emoji:'🧸', type:'obiect', cards:[
+  ['minge','⚽'],['mașinuță','🚗'],['baloane de săpun','🫧'],['puzzle','🧩'],['carte','📖'],['cuburi','🧱'],['ursuleț','🧸'],['tren','🚂'],['balon','🎈'],['tobă','🥁']]},
+ {id:'c_locuri', name:'Locuri și activități', emoji:'🌳', type:'obiect', cards:[
+  ['afară','🌳'],['parc','🛝'],['baie','🛁'],['pat','🛏️'],['toaletă','🚽'],['televizor','📺'],['tabletă','📱'],['muzică','🎵'],['desen','🎨'],['mașină','🚙'],['săpun','🧼'],['pantofi','👟'],['haine','👕']]},
+ {id:'c_oameni', name:'Oameni', emoji:'👪', type:'subiect', cards:[
+  ['mama','👩'],['tata','👨'],['bunica','👵'],['bunicul','👴'],['fratele','👦'],['sora','👧'],['bebe','👶']]},
+ {id:'c_actiuni', name:'Acțiuni', emoji:'🏃', type:'actiune', cards:[
+  ['mănâncă','🍽️','mănânc,mănânci,mănâncă,mâncăm,mâncați,mănâncă'],
+  ['bea','🥤','beau,bei,bea,bem,beți,beau'],
+  ['se joacă','🤹','mă joc,te joci,se joacă,ne jucăm,vă jucați,se joacă'],
+  ['doarme','😴','dorm,dormi,doarme,dormim,dormiți,dorm'],
+  ['merge','🚶','merg,mergi,merge,mergem,mergeți,merg'],
+  ['aleargă','🏃','alerg,alergi,aleargă,alergăm,alergați,aleargă'],
+  ['sare','🤸','sar,sari,sare,sărim,săriți,sar'],
+  ['vede','👀','văd,vezi,vede,vedem,vedeți,văd'],
+  ['ascultă','👂','ascult,asculți,ascultă,ascultăm,ascultați,ascultă'],
+  ['miroase','👃','miros,miroși,miroase,mirosim,mirosiți,miros'],
+  ['citește','📖','citesc,citești,citește,citim,citiți,citesc'],
+  ['desenează','🖍️','desenez,desenezi,desenează,desenăm,desenați,desenează'],
+  ['cântă','🎤','cânt,cânți,cântă,cântăm,cântați,cântă'],
+  ['aruncă','🤾','arunc,arunci,aruncă,aruncăm,aruncați,aruncă'],
+  ['construiește','🏗️','construiesc,construiești,construiește,construim,construiți,construiesc'],
+  ['spală','🧼','spăl,speli,spală,spălăm,spălați,spală'],
+  ['deschide','📂','deschid,deschizi,deschide,deschidem,deschideți,deschid'],
+  ['închide','🔒','închid,închizi,închide,închidem,închideți,închid'],
+  ['ia','✋','iau,iei,ia,luăm,luați,iau'],
+  ['pune','📥','pun,pui,pune,punem,puneți,pun'],
+  ['face','🛠️','fac,faci,face,facem,faceți,fac'],
+  ['are','🤲','am,ai,are,avem,aveți,au'],
+  ['este','🟰','sunt,ești,este,suntem,sunteți,sunt'],
+  ['vine','👋','vin,vii,vine,venim,veniți,vin'],
+  ['se îmbracă','👕','mă îmbrac,te îmbraci,se îmbracă,ne îmbrăcăm,vă îmbrăcați,se îmbracă']]},
+ {id:'c_pronume', name:'Pronume', emoji:'🙋', type:'subiect', cards:[
+  ['eu','🙋','','eu'],['tu','👉','','tu'],['el','👦','','el'],['ea','👧','','el'],['noi','🫂','','noi'],['voi','👐','','voi'],['ei','👥','','ei'],['ele','👭','','ei']]},
+ {id:'c_culori', name:'Culori', emoji:'🎨', type:'descriere', cards:[
+  ['roșu','🔴'],['albastru','🔵'],['galben','🟡'],['verde','🟢'],['portocaliu','🟠'],['mov','🟣'],['maro','🟤'],['negru','⚫'],['alb','⚪'],['roz','🌸']]},
+ {id:'c_forme', name:'Forme', emoji:'🔺', type:'obiect', cards:[
+  ['cerc','⭕'],['pătrat','🟥'],['triunghi','🔺'],['stea','⭐'],['inimă','❤️']]},
+ {id:'c_marimi', name:'Mărimi', emoji:'🐘', type:'descriere', cards:[
+  ['mare','🐘'],['mic','🐭'],['lung','🦒'],['scurt','']]},
+ {id:'c_caract', name:'Cum este', emoji:'✨', type:'descriere', cards:[
+  ['cald','🔥'],['rece','🧊'],['moale','☁️'],['tare','🪨'],['ud','💦'],['uscat',''],['repede','🐇'],['încet','🐢'],['curat',''],['murdar',''],['frumos','✨']]},
+ {id:'c_gusturi', name:'Gusturi și mirosuri', emoji:'👃', type:'descriere', cards:[
+  ['dulce','🍬'],['acru','🍋'],['sărat','🧂'],['amar','☕'],['miroase bine','🌸'],['miroase urât','🦨']]},
+ {id:'c_emotii', name:'Emoții', emoji:'😊', type:'descriere', cards:[
+  ['fericit','😊'],['trist','😢'],['supărat','😠'],['obosit','🥱'],['speriat','😨'],['surprins','😮']]},
+ {id:'c_legatura', name:'Cuvinte de legătură', emoji:'🔗', type:'legatura', cards:[
+  ['și',''],['dar',''],['sau',''],['pentru că',''],['cu',''],['în',''],['pe',''],['sub',''],['lângă',''],['la',''],['un',''],['o','']]},
+ {id:'c_social', name:'Răspunsuri', emoji:'💬', type:'social', cards:[
+  ['da','✅'],['nu','❌'],['gata','🏁'],['pauză','✋'],['salut','👋'],['mulțumesc','🙏'],['te rog','🤲'],['mă doare','🤕']]},
+];
+const L_NOUNS = ['c_mancare','c_jucarii','c_locuri'];
+const L4 = ['c_oameni','c_pronume','c_actiuni',...L_NOUNS,'c_culori','c_forme','c_marimi','c_caract','c_gusturi','c_emotii'];
+const DEFAULT_LEVELS = [
+ {n:1,on:true,name:'O imagine',mode:'single',max:1,slots:[],cats:[...L_NOUNS,'c_oameni']},
+ {n:2,on:true,name:'Cine + ce face',mode:'slots',max:2,slots:[{label:'Cine?',type:'subiect'},{label:'Ce face?',type:'actiune'}],cats:['c_oameni','c_actiuni']},
+ {n:3,on:true,name:'Cine + ce face + ce',mode:'slots',max:3,slots:[{label:'Cine?',type:'subiect'},{label:'Ce face?',type:'actiune'},{label:'Ce?',type:'obiect'}],cats:['c_oameni','c_actiuni',...L_NOUNS]},
+ {n:4,on:true,name:'Propoziții cu descrieri',mode:'free',max:6,slots:[],cats:L4},
+ {n:5,on:true,name:'Fraze',mode:'free',max:10,slots:[],cats:[...L4,'c_legatura','c_social']},
+];
+const DEFAULT_SETTINGS = {title:'Comunicare prin imagini', cols:3, rate:0.9, cooldown:3, maxPlays:0, autoPlay:false, typeColors:true, level:1};
+
+/* ---------------- Baza de date locală (IndexedDB) ---------------- */
+let db;
+function openDB(){ return new Promise((res,rej)=>{ const r=indexedDB.open('comunicare-imagini',1);
+  r.onupgradeneeded=()=>{ const d=r.result; for (const s of ['cats','cards']) if(!d.objectStoreNames.contains(s)) d.createObjectStore(s,{keyPath:'id'}); if(!d.objectStoreNames.contains('meta')) d.createObjectStore('meta'); };
+  r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+function done(t){ return new Promise((res,rej)=>{ t.oncomplete=()=>res(); t.onerror=t.onabort=()=>rej(t.error); }); }
+function reqP(r){ return new Promise((res,rej)=>{ r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+const getAll = s => reqP(db.transaction(s).objectStore(s).getAll());
+const getMeta = k => reqP(db.transaction('meta').objectStore('meta').get(k));
+async function put(s,v){ const t=db.transaction(s,'readwrite'); t.objectStore(s).put(v); await done(t); }
+async function del(s,k){ const t=db.transaction(s,'readwrite'); t.objectStore(s).delete(k); await done(t); }
+async function setMeta(k,v){ const t=db.transaction('meta','readwrite'); t.objectStore('meta').put(v,k); await done(t); }
+async function clearAll(){ const t=db.transaction(['cats','cards','meta'],'readwrite'); for(const s of ['cats','cards','meta']) t.objectStore(s).clear(); await done(t); }
+async function putMany(s,arr){ const t=db.transaction(s,'readwrite'); const o=t.objectStore(s); arr.forEach(v=>o.put(v)); await done(t); }
+
+/* ---------------- Stare ---------------- */
+let cats=[], cards=[], S={...DEFAULT_SETTINGS}, levels=[];
+let editMode=false, activeCat=null, strip=[], activeSlot=0;
+
+async function seed(){
+  const cs=[], ks=[];
+  SEED.forEach((c,i)=>{ cs.push({id:c.id,name:c.name,emoji:c.emoji,type:c.type,order:i});
+    c.cards.forEach((k,j)=>ks.push({id:uid()+j,catId:c.id,label:k[0],emoji:k[1]||'',forms:k[2]?k[2].split(','):null,person:k[3]||(c.type==='subiect'?'el':null),speak:'',img:null,imgUrl:'',audio:null,hidden:false,order:j})); });
+  await putMany('cats',cs); await putMany('cards',ks);
+  await setMeta('levels', structuredClone(DEFAULT_LEVELS));
+  await setMeta('settings', {...DEFAULT_SETTINGS});
+}
+async function load(){
+  if (!db) db = await openDB();
+  if (!(await getMeta('settings'))) await seed();
+  S = {...DEFAULT_SETTINGS, ...(await getMeta('settings'))};
+  levels = (await getMeta('levels')) || structuredClone(DEFAULT_LEVELS);
+  cats = (await getAll('cats')).sort((a,b)=>a.order-b.order);
+  cards = await getAll('cards');
+}
+const saveSettings = () => setMeta('settings', S);
+const saveLevels = () => setMeta('levels', levels);
+const catById = id => cats.find(c=>c.id===id);
+const cardById = id => cards.find(c=>c.id===id);
+const typeOf = card => (catById(card.catId)||{}).type || 'obiect';
+function curLevel(){ let L=levels.find(l=>l.n===S.level && l.on); if(!L){ L=levels.find(l=>l.on)||levels[0]; S.level=L.n; } return L; }
+
+/* ---------------- Imagini ---------------- */
+const urlCache = new Map();
+function blobUrl(key, blob){ const c=urlCache.get(key); if(c && c.blob===blob) return c.url; if(c) URL.revokeObjectURL(c.url); const url=URL.createObjectURL(blob); urlCache.set(key,{blob,url}); return url; }
+function picEl(card, word){
+  const p = h('div',{class:'pic'});
+  if (card.img) p.append(h('img',{src:blobUrl(card.id,card.img),alt:''}));
+  else if (card.imgUrl) p.append(h('img',{src:card.imgUrl,alt:''}));
+  else if (card.emoji) p.append(h('span',{class:'emo'},card.emoji));
+  else { const w = word||card.label; p.append(h('span',{class:'txt',style:`font-size:22px;font-size:${Math.min(34,150/wl(w))}cqw;color:${TYPES[typeOf(card)]?.color||'#333'}`},w)); }
+  return p;
+}
+const hasPic = c => !!(c.img||c.imgUrl||c.emoji);
+const wl = str => Math.max(3, ...String(str).split(/\s+/).map(x=>x.length));
+const borderFor = card => S.typeColors ? (TYPES[typeOf(card)]?.color||'#d9d3c6') : '#d9d3c6';
+
+/* ---------------- Conjugare simplă (eu mănânc / mama mănâncă) ---------------- */
+function wordsFor(list){
+  return list.map((c,i)=>{
+    if (!c) return '';
+    if (typeOf(c)!=='actiune' || !c.forms || c.forms.length!==6) return c.label;
+    const subs=[]; let j=i-1;
+    while (j>=0 && list[j]){ const t=typeOf(list[j]);
+      if (t==='subiect'){ subs.push(list[j].person||'el'); j--; }
+      else if (t==='legatura' && list[j].label.trim()==='și' && subs.length){ j--; }
+      else break; }
+    if (!subs.length) return c.label;
+    let p = subs[0];
+    if (subs.length>1) p = subs.includes('eu')||subs.includes('noi') ? 'noi' : (subs.includes('tu')||subs.includes('voi') ? 'voi' : 'ei');
+    return c.forms[PIDX[p]] || c.label;
+  });
+}
+
+/* ---------------- Voce: înregistrări sau voce sintetică ---------------- */
+let roVoiceCache=null;
+function roVoice(){ if(roVoiceCache) return roVoiceCache; const v=(speechSynthesis.getVoices()||[]).find(v=>/^ro/i.test(v.lang)); if(v) roVoiceCache=v; return v; }
+if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged=()=>{roVoiceCache=null;};
+function tts(text){ return new Promise(res=>{
+  if(!('speechSynthesis' in window)||!text.trim()) return res();
+  let fin=false; const end=()=>{ if(!fin){fin=true;res();} };
+  const u=new SpeechSynthesisUtterance(text); u.lang='ro-RO'; const v=roVoice(); if(v) u.voice=v; u.rate=S.rate;
+  u.onend=end; u.onerror=end; speechSynthesis.speak(u);
+  setTimeout(end, 5000+text.length*300/S.rate); }); }
+const player = new Audio(); let playerUrl=null;
+const SILENT = (()=>{ const n=800, b=new ArrayBuffer(44+n), v=new DataView(b), w=(o,str)=>[...str].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt(0)));
+  w(0,'RIFF'); v.setUint32(4,36+n,true); w(8,'WAVE'); w(12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,8000,true); v.setUint32(28,8000,true); v.setUint16(32,1,true); v.setUint16(34,8,true); w(36,'data'); v.setUint32(40,n,true);
+  for(let i=0;i<n;i++) v.setUint8(44+i,128); return URL.createObjectURL(new Blob([b],{type:'audio/wav'})); })();
+/* Apelat direct din atingere: deblochează sunetul pe iPhone pentru ce urmează */
+function unlockSound(){
+  try{ player.src=SILENT; player.play().catch(()=>{}); }catch(e){}
+  try{ if('speechSynthesis' in window && !speechSynthesis.speaking){ const u=new SpeechSynthesisUtterance(' '); u.volume=0; speechSynthesis.speak(u); } }catch(e){}
+}
+function stopSound(){ try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){} try{ player.pause(); }catch(e){} if(player._end) player._end(); }
+function playBlob(b){ return new Promise(res=>{
+  if(playerUrl) URL.revokeObjectURL(playerUrl); playerUrl=URL.createObjectURL(b);
+  let fin=false; const end=()=>{ if(fin) return; fin=true; player.onended=player.onerror=null; player._end=null; res(); };
+  player._end=end; player.onended=end; player.onerror=end; player.src=playerUrl;
+  player.play().catch(end); setTimeout(end, 15000); }); }
+let speakRun=0;
+async function speakList(list){
+  const run = ++speakRun; const alive=()=>run===speakRun;
+  const words = wordsFor(list); let buf=[];
+  const flush = async()=>{ if(buf.length && alive()){ const t=buf.join(' '); buf=[]; await tts(t); } };
+  for (let i=0;i<list.length;i++){ const c=list[i]; if(!c) continue; if(!alive()) return;
+    if (c.audio && words[i]===c.label){ await flush(); if(!alive()) return; await playBlob(c.audio); }
+    else buf.push(c.speak && words[i]===c.label ? c.speak : words[i]); }
+  await flush();
+}
+
+/* ---------------- Ținut apăsat (ca să nu apese copilul din greșeală) ---------------- */
+function holdBtn(el, ms, fn, tapFn){
+  let t=null;
+  el.addEventListener('pointerdown', e=>{ e.preventDefault(); if(tapFn && tapFn()) return; el.classList.add('holding'); t=setTimeout(()=>{t=null; el.classList.remove('holding'); fn();}, ms); });
+  const stop=()=>{ if(t){clearTimeout(t);t=null;} el.classList.remove('holding'); };
+  ['pointerup','pointerleave','pointercancel'].forEach(ev=>el.addEventListener(ev,stop));
+  el.addEventListener('contextmenu', e=>e.preventDefault());
+}
+
+/* ---------------- Afișare ---------------- */
+function visibleCats(){
+  if (editMode) return cats;
+  const L=curLevel(); let list=cats.filter(c=>L.cats.includes(c.id));
+  if (L.mode==='slots' && L.slots[activeSlot]) list=list.filter(c=>c.type===L.slots[activeSlot].type);
+  return list;
+}
+function render(){
+  document.documentElement.style.setProperty('--cols', S.cols);
+  $('#title').textContent = S.title; document.title = S.title;
+  const L=curLevel();
+  $('#levelTag').textContent = editMode ? 'Mod adult — editare' : `Nivelul ${L.n} · ${L.name}`;
+  $('#lockIcon').textContent = editMode ? '🔓' : '🔒';
+  $('#editBar').classList.toggle('hidden', !editMode);
+  if (editMode){ const sel=$('#levelSel'); sel.replaceChildren(...levels.filter(l=>l.on).map(l=>h('option',{value:l.n},`Nivel ${l.n}: ${l.name}`))); sel.value=L.n; }
+  renderStrip(); renderTabs(); renderGrid();
+}
+function renderStrip(){
+  const L=curLevel(), box=$('#stripCells');
+  const show = !editMode && L.mode!=='single';
+  $('#strip').classList.toggle('hidden', !show); if(!show) return;
+  const list = strip.map(cardById); const words = wordsFor(list); const cells=[];
+  if (L.mode==='slots'){
+    L.slots.forEach((sl,i)=>{ const c=list[i];
+      const cell=h('button',{class:'cell'+(c?' filled':'')+(i===activeSlot?' active':''), style:c?`border-color:${borderFor(c)}`:'', onclick:()=>{ if(c){ strip[i]=null; } activeSlot=i; activeCat=null; render(); }},
+        c ? [picEl(c,words[i]), hasPic(c)?h('div',{class:'w'},words[i]):null] : sl.label);
+      cells.push(cell); });
+    $('#showBtn').disabled = !(strip.length===L.slots.length && strip.every(Boolean));
+  } else {
+    list.forEach((c,i)=>cells.push(h('button',{class:'cell filled',style:`border-color:${borderFor(c)}`,onclick:()=>{ strip.splice(i,1); render(); }}, picEl(c,words[i]), hasPic(c)?h('div',{class:'w'},words[i]):null)));
+    if (list.length < L.max) cells.push(h('div',{class:'cell active'}, '…'));
+    $('#showBtn').disabled = !list.length;
+  }
+  box.replaceChildren(...cells);
+  if (L.mode==='free') box.scrollLeft = box.scrollWidth;
+}
+function renderTabs(){
+  const vc=visibleCats();
+  if (!vc.find(c=>c.id===activeCat)) activeCat = vc[0]?.id || null;
+  $('#tabs').replaceChildren(...vc.map(c=>h('button',{class:'tab'+(c.id===activeCat?' active':''),onclick:()=>{activeCat=c.id; render();}}, `${c.emoji||''} ${c.name}`)));
+  $('#tabs').classList.toggle('hidden', vc.length<1);
+}
+function renderGrid(){
+  const g=$('#grid'); const items=[];
+  if (!activeCat){ const L=curLevel(), sl=L.mode==='slots'?L.slots[activeSlot]:null;
+    g.replaceChildren(h('div',{class:'empty'}, editMode?'Nu există categorii. Apasă „＋ Categorie”.': sl ? `La acest nivel nu există o categorie de tipul „${TYPES[sl.type]?.name}” pentru „${sl.label}”. Adultul o poate bifa din modul adult (🔒 ține apăsat → ✏️ Categoria).` : 'Nu sunt carduri pentru acest nivel. Adultul poate adăuga din modul adult (🔒 ține apăsat).')); return; }
+  const list = cards.filter(c=>c.catId===activeCat && (editMode||!c.hidden)).sort((a,b)=>a.order-b.order);
+  for (const c of list){
+    items.push(h('button',{class:'card'+(c.hidden?' hid':''),style:`border-color:${borderFor(c)}`,onclick:()=>onCard(c)},
+      picEl(c), hasPic(c)?h('div',{class:'lbl',style:`--len:${wl(c.label)}`},c.label):null, editMode?h('span',{class:'badge'},c.audio?'✏️ 🎙️':'✏️'):null));
+  }
+  if (editMode) items.push(h('button',{class:'card add',onclick:()=>editCard(null)},'＋ Card nou'));
+  if (!items.length) items.push(h('div',{class:'empty'},'Nu sunt carduri aici.'));
+  g.replaceChildren(...items);
+}
+
+/* ---------------- Copilul alege ---------------- */
+function onCard(c){
+  if (editMode) return editCard(c);
+  const L=curLevel();
+  if (L.mode==='single'){ strip=[c.id]; openShow(); return; }
+  if (L.mode==='slots'){
+    strip.length = L.slots.length; for(let i=0;i<strip.length;i++) if(strip[i]===undefined) strip[i]=null;
+    strip[activeSlot]=c.id;
+    const next = strip.findIndex(x=>!x); if (next>=0){ activeSlot=next; activeCat=null; }
+    render(); return;
+  }
+  if (strip.length < L.max){ strip.push(c.id); render(); }
+  else toast(`Maximum ${L.max} carduri la acest nivel.`);
+}
+
+/* ---------------- Ecranul „Arată” — doar imaginea și butonul de sunet ---------------- */
+let playsLeft=0, speaking=false;
+function openShow(){
+  const list = strip.map(cardById).filter(Boolean); if(!list.length) return;
+  const words = wordsFor(list);
+  const box=$('#showCards');
+  box.replaceChildren(...list.map((c,i)=>h('div',{class:'big',style:`border-color:${borderFor(c)}`}, picEl(c,words[i]), hasPic(c)?h('div',{class:'w'},words[i]):null)));
+  $('#showText').textContent = list.length>1 ? words.join(' ') : '';
+  showRun++; speaking=false; playsLeft = S.maxPlays>0 ? S.maxPlays : Infinity;
+  const sp=$('#showSpeak'); sp.disabled=false; sp.classList.remove('hidden');
+  $('#show').classList.remove('hidden'); $('#toast').classList.add('hidden'); layoutShow();
+  if (S.autoPlay) doSpeak();
+}
+let showRun=0;
+/* Mărimea cardurilor se potrivește ecranului (telefon mic, tabletă, ecran întors) */
+function layoutShow(){
+  const show=$('#show'); if(show.classList.contains('hidden')) return; show.classList.remove('tight');
+  const box=$('#showCards'), items=[...box.children], n=items.length; if(!n) return;
+  const cs=getComputedStyle(show), padT=parseFloat(cs.paddingTop), padB=parseFloat(cs.paddingBottom);
+  const W=box.clientWidth, txt=$('#showText'), textH=txt.textContent?txt.offsetHeight+14:0;
+  const H=show.clientHeight-padT-padB-88-14-textH-4;
+  let best=0;
+  for(let per=1; per<=n; per++){ const rows=Math.ceil(n/per);
+    const w=Math.min((W-(per-1)*12)/per, ((H-(rows-1)*12)/rows)/1.42); if(w>best) best=w; }
+  // never narrower than the longest word at a readable size (12px)
+  const probe=document.createElement('span'); probe.style.cssText='position:absolute;visibility:hidden;white-space:nowrap;font-weight:800;font-size:10px';
+  box.append(probe); let need=0;
+  for (const el of items){ const wd=el.querySelector('.w'); if(!wd) continue; probe.textContent=String(wd.textContent).split(/\s+/).reduce((a,b)=>b.length>a.length?b:a,''); need=Math.max(need, probe.offsetWidth+26); }
+  probe.remove();
+  if (best < need){ const per=Math.max(1, Math.floor((W+12)/(need+12))); best=Math.max(need, (W-(per-1)*12)/per); }
+  best=Math.max(56, Math.min(Math.floor(best), 520));
+  queueMicrotask(()=>{ if(show.scrollHeight>show.clientHeight+1) show.classList.add('tight'); });
+  items.forEach(el=>{ el.style.width=best+'px'; const wd=el.querySelector('.w'); if(wd) wd.style.fontSize=fitWord(wd, Math.min(38,Math.round(best*0.15)))+'px'; });
+}
+addEventListener('resize', layoutShow);
+/* Cel mai mare font la care cel mai lung cuvânt încape pe card fără să fie rupt */
+function fitWord(el, start){
+  const avail = el.clientWidth - 2;
+  const longest = String(el.textContent).split(/\s+/).reduce((a,b)=>b.length>a.length?b:a,'');
+  const probe = document.createElement('span');
+  probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;font:inherit;font-weight:inherit';
+  probe.textContent = longest; el.append(probe);
+  let fs = start;
+  while (fs > 10){ probe.style.fontSize = fs+'px'; if (probe.offsetWidth <= avail) break; fs--; }
+  probe.remove();
+  return fs;
+}
+async function doSpeak(){
+  if (speaking || playsLeft<=0) return;
+  const sp=$('#showSpeak'), run=showRun; speaking=true; sp.disabled=true; playsLeft--;
+  unlockSound();
+  try { await speakList(strip.map(cardById)); } catch(e){}
+  setTimeout(()=>{ if(run!==showRun) return; speaking=false; if(playsLeft>0) sp.disabled=false; else sp.classList.add('hidden'); }, S.cooldown*1000);
+}
+function closeShow(){
+  speakRun++; showRun++; stopSound();
+  $('#show').classList.add('hidden'); strip=[]; activeSlot=0; activeCat=null; speaking=false; render();
+}
+$('#showSpeak').addEventListener('click', doSpeak);
+holdBtn($('#showBack'), 1000, closeShow);
+$('#showBtn').addEventListener('click', openShow);
+
+/* ---------------- Modul adult ---------------- */
+holdBtn($('#lockBtn'), 1500, ()=>{ editMode=true; strip=[]; activeSlot=0; navigator.storage?.persist?.(); render(); toast('Mod adult: atinge un card ca să-l schimbi.'); },
+  ()=>{ if(editMode){ exitEdit(); return true; } return false; });
+function exitEdit(){ editMode=false; strip=[]; activeSlot=0; activeCat=null; render(); }
+$('#bDone').onclick = exitEdit;
+$('#levelSel').onchange = e=>{ S.level=+e.target.value; saveSettings(); render(); toast(`Nivelul ${S.level} este activ.`); };
+$('#bAddCard').onclick = ()=>editCard(null);
+$('#bAddCat').onclick = ()=>editCat(null);
+$('#bEditCat').onclick = ()=>{ const c=catById(activeCat); if(c) editCat(c); };
+$('#bSettings').onclick = openSettings;
+$('#bLevels').onclick = openLevels;
+
+const dlg=$('#dlg');
+function openDlg(...kids){ $('#dlgBody').replaceChildren(...kids); if(!dlg.open) dlg.showModal(); $('#dlgBody').scrollTop=0; }
+function closeDlg(){ stopRec(); stopSound(); if(dlg.open) dlg.close(); }
+dlg.addEventListener('cancel', ()=>stopRec());
+
+/* ----- Editare card ----- */
+let draft=null, rec=null, recStream=null, recTimer=null;
+function editCard(card){
+  const catId = card?.catId || activeCat || cats[0]?.id;
+  if (!catId){ toast('Creează întâi o categorie.'); return; }
+  draft = card ? {...card, forms: card.forms?[...card.forms]:null} : {id:uid(),catId,label:'',emoji:'',img:null,imgUrl:'',audio:null,speak:'',forms:null,person:'el',hidden:false,order:Math.max(0,...cards.filter(c=>c.catId===catId).map(c=>c.order+1))};
+  renderEditor(!card);
+}
+function renderEditor(isNew){
+  const d=draft, t=catById(d.catId)?.type;
+  const pic = h('div',{id:'edPic',style:`border-color:${borderFor(d)}`}, picEl(d));
+  const fileIn = h('input',{type:'file',accept:'image/*',class:'hidden',onchange:async e=>{ const f=e.target.files[0]; if(!f) return; try{ d.img=await toSquare(f); d.imgUrl=''; d.src='photo'; renderEditor(isNew);}catch(err){ toast('Nu am putut citi poza.'); } }});
+  const label = h('input',{type:'text',value:d.label,placeholder:'ex.: apă',oninput:e=>{d.label=e.target.value;}});
+  const emoji = h('input',{type:'text',value:d.emoji,placeholder:'ex.: 💧',style:'width:90px',oninput:e=>{d.emoji=e.target.value.trim();}});
+  const catSel = h('select',{onchange:e=>{d.catId=e.target.value; d.order=Math.max(0,...cards.filter(c=>c.catId===d.catId&&c.id!==d.id).map(c=>c.order+1)); renderEditor(isNew);}, value:d.catId}, cats.map(c=>h('option',{value:c.id},`${c.emoji||''} ${c.name}`)));
+  const ar = arasaacPanel(isNew);
+
+  const parts = [
+    h('h2',{}, isNew?'Card nou':'Schimbă cardul'),
+    pic,
+    h('div',{class:'row',style:'justify-content:center'},
+      h('button',{onclick:()=>fileIn.click()},'📷 Poză (cameră / galerie)'),
+      h('button',{onclick:()=>ar.classList.toggle('hidden')},'🔎 Pictograme gratuite'),
+      (d.img||d.imgUrl)?h('button',{class:'dan',onclick:()=>{d.img=null;d.imgUrl='';renderEditor(isNew);}},'Scoate poza'):null),
+    fileIn, ar,
+    h('label',{},'Cuvântul de pe card', label),
+    h('div',{class:'row'}, h('label',{},'Emoji (dacă nu are poză)', emoji), h('button',{style:'align-self:flex-end',onclick:()=>renderEditor(isNew)},'Arată')),
+    h('label',{},'Categoria', catSel),
+  ];
+  if (t==='subiect') parts.push(h('label',{},'Ce persoană este (pentru acțiuni: „eu mănânc”, „mama mănâncă”)',
+    h('select',{value:d.person||'el',onchange:e=>{d.person=e.target.value;}}, PERS.map(([k,n])=>h('option',{value:k},n)))));
+  if (t==='actiune'){
+    const f = d.forms && d.forms.length===6 ? d.forms : ['','','','','',''];
+    parts.push(h('fieldset',{}, h('legend',{},'Formele acțiunii (opțional)'),
+      h('div',{class:'note'},'Aplicația alege forma potrivită după cine face acțiunea. Lasă gol dacă nu ai nevoie.'),
+      h('div',{class:'forms'}, PERS.map(([k,n],i)=>[h('span',{},n), h('input',{type:'text',value:f[i],oninput:e=>{ f[i]=e.target.value.trim(); d.forms = f.some(Boolean)?f.map(x=>x||d.label):null; }})]))));
+  }
+  parts.push(
+    h('fieldset',{}, h('legend',{},'🎙️ Vocea'),
+      h('div',{class:'note'},'Înregistrează vocea ta (mama, tata, cine este lângă copil). Fără înregistrare, telefonul citește cuvântul cu vocea lui.'),
+      h('div',{class:'row'},
+        h('button',{id:'recBtn',class:'pri',onclick:()=>toggleRec(isNew)}, rec?'⏹ Oprește':'● Înregistrează'),
+        d.audio?h('button',{onclick:()=>{unlockSound(); playBlob(d.audio);}},'▶ Ascultă'):null,
+        !d.audio?h('button',{onclick:()=>{stopSound(); const t=d.speak||d.label; setTimeout(()=>tts(t),150);}},'▶ Ascultă vocea telefonului'):null,
+        d.audio?h('button',{class:'dan',onclick:()=>{d.audio=null;renderEditor(isNew);}},'🗑 Șterge vocea'):null),
+      h('label',{},'Ce se aude (dacă e altceva decât cuvântul)', h('input',{type:'text',value:d.speak||'',placeholder:d.label||'',oninput:e=>{d.speak=e.target.value;}}))),
+    h('label',{class:'chk'}, h('input',{type:'checkbox',checked:d.hidden,onchange:e=>{d.hidden=e.target.checked;}}), 'Ascuns pentru copil (rămâne salvat)'),
+    !isNew ? h('div',{class:'row'}, h('span',{class:'note'},'Poziția:'), h('button',{onclick:()=>moveCard(-1)},'◀ Mai în față'), h('button',{onclick:()=>moveCard(1)},'Mai în spate ▶')) : null,
+    h('div',{class:'actions'},
+      !isNew?h('button',{class:'dan',onclick:deleteCard},'Șterge cardul'):null,
+      h('button',{onclick:closeDlg},'Renunță'),
+      h('button',{class:'pri',onclick:saveCard},'Salvează')),
+  );
+  openDlg(...parts);
+}
+let saving=false;
+async function saveCard(){
+  if(saving) return; saving=true;
+  try{ await stopRec(); await saveCard2(); } finally{ saving=false; }
+}
+async function saveCard2(){
+  draft.label = draft.label.trim();
+  if (!draft.label){ toast('Scrie cuvântul de pe card.'); return; }
+  if (typeOf(draft)!=='subiect') draft.person = draft.person||null;
+  const i = cards.findIndex(c=>c.id===draft.id);
+  if (i>=0) cards[i]=draft; else cards.push(draft);
+  await put('cards', draft); closeDlg(); activeCat=draft.catId; render(); toast('Salvat.');
+}
+async function deleteCard(){
+  if (!confirm(`Ștergi cardul „${draft.label}”?`)) return;
+  cards = cards.filter(c=>c.id!==draft.id); await del('cards', draft.id); closeDlg(); render();
+}
+async function moveCard(dir){
+  const list = cards.filter(c=>c.catId===draft.catId).sort((a,b)=>a.order-b.order);
+  list.forEach((c,i)=>c.order=i);
+  const i = list.findIndex(c=>c.id===draft.id), j=i+dir; if (i<0){ toast('Salvează întâi cardul.'); return; } if (j<0||j>=list.length) return;
+  [list[i].order,list[j].order]=[list[j].order,list[i].order]; draft.order=list[i].order;
+  await putMany('cards', list); render(); toast('Mutat.');
+}
+async function toggleRec(isNew){
+  if (rec){ stopRec(); return; }
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder){ toast('Telefonul nu permite înregistrarea aici.'); return; }
+  try { recStream = await navigator.mediaDevices.getUserMedia({audio:true}); }
+  catch(e){ toast('Permite accesul la microfon ca să înregistrezi.'); return; }
+  const mt = ['audio/mp4','audio/webm;codecs=opus','audio/webm','audio/ogg'].find(t=>MediaRecorder.isTypeSupported?.(t));
+  const chunks=[]; rec = new MediaRecorder(recStream, mt?{mimeType:mt}:undefined);
+  rec.ondataavailable = e=>{ if(e.data.size) chunks.push(e.data); };
+  const target=draft;
+  rec.onstop = ()=>{ const b=new Blob(chunks,{type:rec?.mimeType||mt||'audio/webm'}); if(b.size) target.audio=b; recStream?.getTracks().forEach(t=>t.stop()); recStream=null; rec=null; clearTimeout(recTimer); if(recDone){recDone();recDone=null;} if(dlg.open && draft===target && !saving) renderEditor(isNew); };
+  rec.start(); recTimer=setTimeout(stopRec, 8000);
+  const b=$('#recBtn'); if(b) b.textContent='⏹ Oprește (se înregistrează…)';
+}
+let recDone=null;
+function stopRec(){ if (rec && rec.state!=='inactive'){ const p=new Promise(r=>recDone=r); rec.stop(); return p; } return Promise.resolve(); }
+
+/* ----- Pictograme gratuite ARASAAC (necesită internet la căutare) ----- */
+function arasaacPanel(isNew){
+  const q = h('input',{type:'text',placeholder:'caută, ex.: apă',value:draft.label});
+  const res = h('div',{id:'arResults'});
+  const go = async()=>{
+    const term=q.value.trim(); if(!term) return; res.replaceChildren(h('span',{class:'note'},'Caut…'));
+    try{
+      const r = await fetch('https://api.arasaac.org/v1/pictograms/ro/search/'+encodeURIComponent(term));
+      if (!r.ok) throw 0; const j = await r.json();
+      const ids = j.slice(0,24).map(o=>o._id);
+      if (!ids.length) throw 0;
+      res.replaceChildren(...ids.map(id=>{ const src=`https://static.arasaac.org/pictograms/${id}/${id}_500.png`;
+        return h('button',{onclick:()=>pickArasaac(src,isNew)}, h('img',{src:src.replace('_500.png','_300.png'),alt:'',loading:'lazy'})); }));
+    }catch(e){ res.replaceChildren(h('span',{class:'note'},'Nu am găsit nimic sau nu există internet. Încearcă alt cuvânt.')); }
+  };
+  q.addEventListener('keydown', e=>{ if(e.key==='Enter') go(); });
+  return h('fieldset',{class:'hidden'}, h('legend',{},'Pictograme ARASAAC'),
+    h('div',{class:'row'}, q, h('button',{class:'pri',onclick:go},'Caută')), res,
+    h('div',{class:'note'},'Pictograme: Sergio Palao, ARASAAC (Guvernul Aragonului), licență CC BY-NC-SA. Gratuite pentru uz necomercial.'));
+}
+async function pickArasaac(src,isNew){
+  try { const r=await fetch(src); if(!r.ok) throw 0; draft.img = await r.blob(); draft.imgUrl=''; }
+  catch(e){ draft.img=null; draft.imgUrl=src; }
+  draft.src='arasaac'; renderEditor(isNew);
+}
+async function toSquare(file){
+  const url=URL.createObjectURL(file);
+  try{
+    const img = await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=url; });
+    const N=512, c=document.createElement('canvas'); c.width=c.height=N; const x=c.getContext('2d');
+    x.fillStyle='#fff'; x.fillRect(0,0,N,N);
+    const s=Math.min(N/img.naturalWidth, N/img.naturalHeight), w=img.naturalWidth*s, hh=img.naturalHeight*s;
+    x.drawImage(img,(N-w)/2,(N-hh)/2,w,hh);
+    return await new Promise(r=>c.toBlob(r,'image/jpeg',0.85));
+  } finally { URL.revokeObjectURL(url); }
+}
+
+/* ----- Categorii ----- */
+function editCat(cat){
+  const isNew=!cat;
+  const d = cat ? {...cat} : {id:uid(),name:'',emoji:'',type:'obiect',order:Math.max(-1,...cats.map(c=>c.order))+1};
+  const inLv = new Set(levels.filter(l=>isNew ? l.mode==='free' : l.cats.includes(d.id)).map(l=>l.n));
+  openDlg(
+    h('h2',{}, isNew?'Categorie nouă':'Schimbă categoria'),
+    h('label',{},'Numele', h('input',{type:'text',value:d.name,placeholder:'ex.: Animale',oninput:e=>{d.name=e.target.value;}})),
+    h('label',{},'Emoji', h('input',{type:'text',value:d.emoji,placeholder:'ex.: 🐶',oninput:e=>{d.emoji=e.target.value.trim();}})),
+    h('label',{},'Ce fel de cuvinte sunt aici', h('select',{value:d.type,onchange:e=>{d.type=e.target.value;}}, Object.entries(TYPES).map(([k,v])=>h('option',{value:k},v.name)))),
+    h('fieldset',{}, h('legend',{},'Apare la nivelurile'),
+      levels.map(l=>h('label',{class:'chk'}, h('input',{type:'checkbox',checked:inLv.has(l.n),onchange:e=>{ e.target.checked?inLv.add(l.n):inLv.delete(l.n); }}), `Nivel ${l.n}: ${l.name}`+(l.on?'':' (oprit)')))),
+    !isNew ? h('div',{class:'row'}, h('span',{class:'note'},'Poziția:'), h('button',{onclick:()=>moveCat(d.id,-1)},'◀ Mai în față'), h('button',{onclick:()=>moveCat(d.id,1)},'Mai în spate ▶')) : null,
+    h('div',{class:'actions'},
+      !isNew?h('button',{class:'dan',onclick:async()=>{ const n=cards.filter(c=>c.catId===d.id).length;
+        if(!confirm(`Ștergi categoria „${d.name}” și cele ${n} carduri din ea?`)) return;
+        for (const c of cards.filter(c=>c.catId===d.id)) await del('cards',c.id);
+        cards=cards.filter(c=>c.catId!==d.id); cats=cats.filter(c=>c.id!==d.id); await del('cats',d.id);
+        levels.forEach(l=>l.cats=l.cats.filter(x=>x!==d.id)); await saveLevels(); closeDlg(); activeCat=null; render(); }},'Șterge categoria'):null,
+      h('button',{onclick:closeDlg},'Renunță'),
+      h('button',{class:'pri',onclick:async()=>{
+        d.name=d.name.trim(); if(!d.name){ toast('Scrie numele categoriei.'); return; }
+        const i=cats.findIndex(c=>c.id===d.id); if(i>=0){ d.order=cats[i].order; cats[i]=d; } else cats.push(d);
+        await put('cats',d);
+        levels.forEach(l=>{ const has=l.cats.includes(d.id); if(inLv.has(l.n)&&!has) l.cats.push(d.id); if(!inLv.has(l.n)&&has) l.cats=l.cats.filter(x=>x!==d.id); });
+        await saveLevels(); closeDlg(); activeCat=d.id; render(); toast('Salvat.'); }},'Salvează')));
+}
+async function moveCat(id,dir){
+  cats.forEach((c,i)=>c.order=i); const i=cats.findIndex(c=>c.id===id), j=i+dir; if(j<0||j>=cats.length) return;
+  [cats[i].order,cats[j].order]=[cats[j].order,cats[i].order]; cats.sort((a,b)=>a.order-b.order);
+  await putMany('cats',cats); render(); toast('Mutat.');
+}
+
+/* ----- Niveluri ----- */
+function openLevels(){
+  const L = structuredClone(levels);
+  const draw = ()=>openDlg(
+    h('h2',{},'Niveluri'),
+    h('div',{class:'note'},'Pornește doar nivelurile de care ai nevoie (1, 2, 4 sau toate 5). Categoriile din fiecare nivel se aleg din „✏️ Categoria”.'),
+    ...L.map((l,idx)=>h('div',{class:'lvl'+(l.on?'':' off')},
+      h('label',{class:'chk'}, h('input',{type:'checkbox',checked:l.on,onchange:e=>{l.on=e.target.checked; draw();}}), h('b',{},`Nivelul ${l.n}`)),
+      h('label',{},'Numele', h('input',{type:'text',value:l.name,oninput:e=>{l.name=e.target.value;}})),
+      h('label',{},'Cum se construiește', h('select',{value:l.mode,onchange:e=>{ l.mode=e.target.value; if(l.mode==='slots'&&!l.slots.length) l.slots=[{label:'Cine?',type:'subiect'},{label:'Ce face?',type:'actiune'}]; draw(); }},
+        h('option',{value:'single'},'O singură imagine'), h('option',{value:'slots'},'Locuri fixe (ex.: Cine? + Ce face?)'), h('option',{value:'free'},'Propoziție liberă'))),
+      l.mode==='free' ? h('label',{},'Câte carduri cel mult', h('input',{type:'number',min:2,max:15,value:Math.max(2,l.max),oninput:e=>{l.max=Math.max(2,Math.min(15,+e.target.value||2));}})) : null,
+      l.mode==='slots' ? h('fieldset',{}, h('legend',{},'Locurile, în ordine'),
+        ...l.slots.map((s,si)=>h('div',{class:'slotrow'},
+          h('input',{type:'text',value:s.label,oninput:e=>{s.label=e.target.value;}}),
+          h('select',{value:s.type,onchange:e=>{s.type=e.target.value;}}, Object.entries(TYPES).map(([k,v])=>h('option',{value:k},v.name))),
+          h('button',{class:'dan',onclick:()=>{ l.slots.splice(si,1); draw(); }},'✕'))),
+        l.slots.length<6 ? h('button',{onclick:()=>{ l.slots.push({label:'Ce?',type:'obiect'}); draw(); }},'＋ Loc') : null) : null)),
+    h('div',{class:'actions'},
+      h('button',{onclick:closeDlg},'Renunță'),
+      h('button',{class:'pri',onclick:async()=>{
+        if(!L.some(l=>l.on)){ toast('Lasă pornit cel puțin un nivel.'); return; }
+        for (const l of L){ l.name=l.name.trim()||`Nivelul ${l.n}`; if(l.mode==='slots'){ l.slots=l.slots.filter(s=>s.label.trim()); if(!l.slots.length) l.mode='single'; } l.max = l.mode==='single'?1 : l.mode==='slots'? l.slots.length : Math.max(2, l.max||6); }
+        levels=L; await saveLevels(); curLevel(); await saveSettings(); closeDlg(); render(); toast('Niveluri salvate.'); }},'Salvează')));
+  draw();
+}
+
+/* ----- Setări + copie de siguranță ----- */
+function openSettings(){
+  const d={...S};
+  const num=(k,min,max,step)=>h('input',{type:'number',min,max,step,value:d[k],oninput:e=>{d[k]=Math.max(min,Math.min(max,+e.target.value||min));}});
+  const imp = h('input',{type:'file',class:'hidden',onchange:e=>{ importBackup(e.target.files[0]); e.target.value=''; }});
+  openDlg(
+    h('h2',{},'Setări'),
+    h('label',{},'Numele aplicației (sus pe ecran)', h('input',{type:'text',value:d.title,oninput:e=>{d.title=e.target.value;}})),
+    h('label',{},'Carduri pe un rând (2–6)', num('cols',2,6,1)),
+    h('fieldset',{}, h('legend',{},'Butonul de sunet 🔊'),
+      h('label',{},'Pauză după ascultare, în secunde (0–10)', num('cooldown',0,10,1)),
+      h('label',{},'De câte ori se poate asculta o dată arătată (0 = oricât)', num('maxPlays',0,10,1)),
+      h('label',{class:'chk'}, h('input',{type:'checkbox',checked:d.autoPlay,onchange:e=>{d.autoPlay=e.target.checked;}}),'Se aude singur când copilul arată imaginea'),
+      h('label',{},'Viteza vocii telefonului (0.5–1.3)', num('rate',0.5,1.3,0.1)),
+      h('div',{class:'note'}, ('speechSynthesis' in window && roVoice()) ? '✅ Telefonul are voce în limba română.' : '⚠️ Nu am găsit o voce în limba română pe acest telefon. Înregistrați vocea voastră la carduri sau instalați limba română la „Text în vorbire” din setările telefonului.')),
+    h('label',{class:'chk'}, h('input',{type:'checkbox',checked:d.typeColors,onchange:e=>{d.typeColors=e.target.checked;}}),'Margini colorate după tipul cuvântului'),
+    h('div',{class:'note'}, Object.values(TYPES).map(t=>h('span',{style:`display:inline-block;margin:2px 8px 2px 0;border-left:12px solid ${t.color};padding-left:6px`},t.name))),
+    h('fieldset',{}, h('legend',{},'💾 Copie de siguranță'),
+      h('div',{class:'note'},'Pozele și vocile stau doar în acest telefon. Salvează din când în când o copie (poți s-o trimiți și celuilalt părinte, care o deschide la „Încarcă o copie”).'),
+      h('div',{class:'row'}, h('button',{class:'pri',onclick:exportBackup},'Salvează copia'), h('button',{onclick:()=>imp.click()},'Încarcă o copie'), imp)),
+    h('fieldset',{}, h('legend',{},'Instalare pe telefon'),
+      h('div',{class:'note'},'Android (Chrome): meniul ⋮ → „Adaugă pe ecranul de pornire” / „Instalează aplicația”. iPhone (Safari): butonul Partajează → „Adaugă pe ecranul principal”. Instalați aplicația ÎNAINTE de a adăuga poze: pe iPhone, aplicația instalată are cardurile ei separate de Safari. După instalare merge și fără internet.')),
+    h('div',{class:'note'},'Pictogramele căutate în aplicație: Sergio Palao, ARASAAC (Guvernul Aragonului), CC BY-NC-SA. Emoji: desenate de telefonul fiecăruia.'),
+    h('div',{class:'actions'},
+      h('button',{class:'dan',onclick:async()=>{ if(!confirm('Ștergi TOT (poze, voci, carduri) și pornești cu cardurile de început?')) return; await clearAll(); await load(); closeDlg(); exitEdit(); toast('Am pornit de la început.'); }},'Pornește de la zero'),
+      h('button',{onclick:closeDlg},'Renunță'),
+      h('button',{class:'pri',onclick:async()=>{ d.title=d.title.trim()||DEFAULT_SETTINGS.title; S={...S,...d}; await saveSettings(); closeDlg(); render(); toast('Salvat.'); }},'Salvează')));
+}
+const toDataURL = b => new Promise(r=>{ const f=new FileReader(); f.onload=()=>r(f.result); f.readAsDataURL(b); });
+async function exportBackup(){
+  toast('Pregătesc copia…');
+  const out = {app:'comunicare-imagini', v:1, date:new Date().toISOString(), settings:S, levels, cats, cards:[]};
+  for (const c of cards) out.cards.push({...c, img:c.img?await toDataURL(c.img):null, audio:c.audio?await toDataURL(c.audio):null});
+  const name = `comunicare-copie-${new Date().toISOString().slice(0,10)}.json`;
+  const file = new File([JSON.stringify(out)], name, {type:'application/json'});
+  if (navigator.canShare?.({files:[file]})){ try{ await navigator.share({files:[file], title:name}); return; }catch(e){ if(e.name==='AbortError') return; } }
+  const a=h('a',{href:URL.createObjectURL(file),download:name}); document.body.append(a); a.click(); a.remove();
+}
+async function importBackup(file){
+  if(!file) return;
+  try{
+    const j = JSON.parse(await file.text());
+    if (j.app!=='comunicare-imagini' || !Array.isArray(j.cards)) throw 0;
+    if (!confirm(`Înlocuiești cardurile din acest telefon cu copia (${j.cards.length} carduri)?`)) return;
+    const toBlob = async u => u ? await (await fetch(u)).blob() : null;
+    const ks=[]; for (const c of j.cards) ks.push({...c, img:await toBlob(c.img), audio:await toBlob(c.audio)});
+    await clearAll(); await putMany('cats', j.cats||[]); await putMany('cards', ks);
+    await setMeta('levels', j.levels||structuredClone(DEFAULT_LEVELS)); await setMeta('settings', {...DEFAULT_SETTINGS,...(j.settings||{})});
+    await load(); closeDlg(); activeCat=null; render(); toast('Copia a fost încărcată.');
+  }catch(e){ toast('Fișierul nu este o copie validă.'); }
+}
+
+/* ---------------- Pornire ---------------- */
+load().then(render).catch(e=>{ document.body.innerHTML='<p style="padding:20px">Aplicația nu poate salva date în acest browser (poate e în modul privat). Deschide-o într-o fereastră normală.</p>'; });
+if ('serviceWorker' in navigator && window.isSecureContext && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
